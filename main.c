@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <ftw.h>
 
 int task(char*path,char *argument[]);
 _Bool checkUpdate();
@@ -16,7 +15,8 @@ int main() {
     // first check if update exits
     _Bool uA = checkUpdate();
     // if update is not found exit otherwise contiune
-    if (!uA) update();
+    if (!uA) {
+    update();
     // delete cache
     clearCache();
     // orphaned packaes
@@ -25,7 +25,7 @@ int main() {
     // check if a reboot is recommended
     needRestarting();
     // exit
-
+	}
     printf("done!\n");
     return 0;
 }
