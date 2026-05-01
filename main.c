@@ -51,7 +51,7 @@ int task(char*path,char *argument[]) {
     void checkUpdate() {
         printf("Checking update...\n");
         char *updateChecking[] = {"dnf" , "check-update" , "--refresh" , NULL};
-        int checkStatus = task("sudo",updateChecking);
+        int checkStatus = task("/usr/bin/sudo",updateChecking);
         if (checkStatus != 100 && checkStatus != 0) { fprintf(stderr ," updating failed"); exit(EXIT_FAILURE); }
         else if (checkStatus == 0) { printf("Up to date\n"); exit(EXIT_SUCCESS); }
     }
@@ -71,7 +71,7 @@ void update() {
         }
     else { printf("wrong input, try again\n"); continue;}
     }
-    int updateStatus = task("dnf",update);
+    int updateStatus = task("/usr/bin/sudo",update);
     if (updateStatus != 0) { fprintf(stderr,"upgrade failed"); exit(EXIT_FAILURE); }
 
     printf("Update is done ... \n");
