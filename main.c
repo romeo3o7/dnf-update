@@ -3,45 +3,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#define PATH "/usr/bin/dnf"
 
-int task(char * argument[]);
+int task(char*path,char *argument[]);
+void checkUpdate();
+void update();
 
 int main() {
-    if ( geteuid() != 0 ) { fprintf(stderr, "you Must run it with sudo\n"); exit(EXIT_FAILURE); }
     // first check if update exits
-    printf("Checking update...\n");
-    char *updateChecking[] = {"dnf" , "check-update" , "--refresh" , NULL};
-    int checkStatus = task(updateChecking);
-    if (checkStatus != 100 && checkStatus != 0) { fprintf(stderr ," updating failed"); exit(EXIT_FAILURE); }
-    else if (checkStatus == 0) { printf("Up to date\n"); exit(EXIT_SUCCESS); }
-    // second update
-    char *offline[] = {"dnf" , "upgrade" , "--offline" , NULL};
-    char *online[] = {"dnf" , "upgrade" , NULL};
-    char **update;
-    printf("\nupdate found!\nwould you like an offline or online update?\noffline if the update includes : kernel,libc,systemd,mesa,shell.\n'o' for online and 'f' for offline\n");
-    char buffer[2];
-    while(1) {
-    char *input= fgets(buffer, sizeof(buffer) , stdin);
-    if (input != NULL && (buffer[0] == 'o' || buffer[0] == 'f')) {
-       if (buffer[0] == 'f') { update = offline; }// offline
-       else { update = online; }
-      break;
-    }
-    else { printf("wrong input, try again\n"); continue;}
-    }
-    int updateStatus = task(update);
-    if (updateStatus != 0) { fprintf(stderr,"upgrade failed"); exit(EXIT_FAILURE); }
-
-    if (buffer[0] == 'f') {
-        char *offlineUpdate[] = {"dnf" , "upgrade" , "--offline" , NULL};
-        task(offlineUpdate);
-    }
-
-    printf("Update is done ... cache cleaning now ... \n");
+    checkUpdate();
+    // if update is not found exit otherwise contiune
+    update();
     // delete cache
-    char *clean[] = {"dnf", "clean", "all" , NULL};
-    task(clean);
+    char *clean[] = {"dnf", "clean", "packages" , NULL};
+    task("dnf",clean);
 
     printf("done!\n");
     // check if a service needs restarting
@@ -51,10 +25,10 @@ int main() {
     return 0;
 }
 
-int task(char *argument[]) {
+int task(char*path,char *argument[]) {
  pid_t childProcess = fork();
 	if (childProcess == 0) {
-	    execv(PATH, argument); // here child is gone if succesful
+	    execv(path, argument); // here child is gone if succesful
 	    perror("child failed, execv stage\n");
 	    exit(EXIT_FAILURE);
 	} else if (childProcess == -1) {
@@ -73,3 +47,32 @@ int task(char *argument[]) {
 	}
 	return -1;
     }
+
+    void checkUpdate() {
+        printf("Checking update...\n");
+        char *updateChecking[] = {"dnf" , "check-update" , "--refresh" , NULL};
+        int checkStatus = task("sudo",updateChecking);
+        if (checkStatus != 100 && checkStatus != 0) { fprintf(stderr ," updating failed"); exit(EXIT_FAILURE); }
+        else if (checkStatus == 0) { printf("Up to date\n"); exit(EXIT_SUCCESS); }
+    }
+
+void update() {
+    printf("\nupdate found!\nwould you like an offline or online update?\noffline if the update includes : kernel,libc,systemd,mesa.\n'o' for online and 'f' for offline\n");
+    char *offline[] = {"sudo","dnf" , "upgrade" , "--offline" , NULL};
+    char *online[] = {"sudo", "dnf" , "upgrade" , NULL};
+    char **update;
+    char buffer[2];
+    while(1) {
+    char *input= fgets(buffer, sizeof(buffer) , stdin);
+    if (input != NULL && (buffer[0] == 'o' || buffer[0] == 'f')) { // if pointer input is not null and first value of buffer is either 'o' or 'f'
+       if (buffer[0] == 'f') { update = offline; }
+       else { update = online; }
+      break;
+        }
+    else { printf("wrong input, try again\n"); continue;}
+    }
+    int updateStatus = task("dnf",update);
+    if (updateStatus != 0) { fprintf(stderr,"upgrade failed"); exit(EXIT_FAILURE); }
+
+    printf("Update is done ... \n");
+}
