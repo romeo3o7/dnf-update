@@ -3,25 +3,30 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <ftw.h>
 
 int task(char*path,char *argument[]);
-void checkUpdate();
+_Bool checkUpdate();
 void update();
+void clearCache();
+void clearingOrphans();
+void needRestarting();
 
 int main() {
     // first check if update exits
-    checkUpdate();
+    _Bool uA = checkUpdate();
     // if update is not found exit otherwise contiune
-    update();
+    if (!uA) update();
     // delete cache
-    char *clean[] = {"dnf", "clean", "packages" , NULL};
-    task("dnf",clean);
-
-    printf("done!\n");
+    clearCache();
+    // orphaned packaes
+    clearingOrphans();
     // check if a service needs restarting
     // check if a reboot is recommended
+    needRestarting();
     // exit
 
+    printf("done!\n");
     return 0;
 }
 
@@ -48,26 +53,27 @@ int task(char*path,char *argument[]) {
 	return -1;
     }
 
-    void checkUpdate() {
+    _Bool checkUpdate() {
         printf("Checking update...\n");
-        char *updateChecking[] = {"dnf" , "check-update" , "--refresh" , NULL};
+        char *updateChecking[] = {"sudo" , "dnf" , "check-update" , "--refresh" , NULL};
         int checkStatus = task("/usr/bin/sudo",updateChecking);
-        if (checkStatus != 100 && checkStatus != 0) { fprintf(stderr ," updating failed"); exit(EXIT_FAILURE); }
-        else if (checkStatus == 0) { printf("Up to date\n"); exit(EXIT_SUCCESS); }
+        if (checkStatus != 100 && checkStatus != 0) { fprintf(stderr ,"updating failed"); exit(EXIT_FAILURE); }
+        else if (checkStatus == 0) { printf("Up to date\n"); return 1; }
+        return 0;
     }
 
 void update() {
-    printf("\nupdate found!\nwould you like an offline or online update?\noffline if the update includes : kernel,libc,systemd,mesa.\n'o' for online and 'f' for offline\n");
-    char *offline[] = {"sudo","dnf" , "upgrade" , "--offline" , NULL};
-    char *online[] = {"sudo", "dnf" , "upgrade" , NULL};
+    printf("\nupdate found!\nwould you like an offline or online update?\noffline if the update includes: kernel,libc,systemd,mesa.\n'o' for online and 'f' for offline\n");
+    char *offline[] = {"sudo" , "dnf" , "upgrade" , "--offline" , NULL};
+    char *online[] = { "sudo" , "dnf" , "upgrade" , NULL};
     char **update;
-    char buffer[2];
+    char buffer[8];
     while(1) {
     char *input= fgets(buffer, sizeof(buffer) , stdin);
     if (input != NULL && (buffer[0] == 'o' || buffer[0] == 'f')) { // if pointer input is not null and first value of buffer is either 'o' or 'f'
        if (buffer[0] == 'f') { update = offline; }
        else { update = online; }
-      break;
+    break;
         }
     else { printf("wrong input, try again\n"); continue;}
     }
@@ -75,4 +81,26 @@ void update() {
     if (updateStatus != 0) { fprintf(stderr,"upgrade failed"); exit(EXIT_FAILURE); }
 
     printf("Update is done ... \n");
+}
+
+void clearCache() {
+    printf("clearing cache .. : ");
+    fflush(stdout);
+    char *arguments[] = {"sudo" , "dnf" , "clean" , "packages" , NULL};
+    int cachaeStatus = task("/usr/bin/sudo", arguments);
+}
+
+void clearingOrphans() {
+    printf("deleting orphaned packages : ");
+    fflush(stdout);
+    char *arguments[] = {"sudo" , "dnf" , "autoremove" , NULL};
+    int orphanStatus = task("/usr/bin/sudo" , arguments);
+    if (orphanStatus == 0) printf("no orphaned packages found\n");
+}
+
+void needRestarting() {
+    printf("Checking if a restart is needed : ");
+    fflush(stdout);
+    char *arguments[] = {"needs-restarting" , "-r" , NULL};
+    task("/usr/bin/needs-restarting" ,arguments);
 }
